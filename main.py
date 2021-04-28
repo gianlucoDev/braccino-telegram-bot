@@ -1,4 +1,5 @@
 import telebot
+import requests
 import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton,ReplyKeyboardMarkup,KeyboardButton
 import re
@@ -7,7 +8,42 @@ API_TOKEN = '1731109146:AAFYwi3RizyY1Fw_aaUa2Ta-2DDMTbpD6Zg'
 
 bot = telebot.TeleBot(API_TOKEN)
 
-pos=0
+
+routines = [
+    {
+        "id": 1,
+        "name": "giacomo",
+        "steps": [
+            {
+                "delay": 1000,
+                "m1": 1,
+                "m2": 1,
+                "m3": 1,
+                "m4": 1,
+                "m5": 1,
+                "m6": 1,
+            },
+            {
+                "delay": 1000,
+                "m1": 1,
+                "m2": 1,
+                "m3": 1,
+                "m4": 1,
+                "m5": 1,
+                "m6": 1,
+            }
+        ]
+    }
+]
+
+
+M={"M1":0,"M2":0,"M3":0,"M4":0,"M5":0,"M6":0}
+
+premutoR=""
+premutoS=""
+premutoM=""
+
+
 
 def list_view(list):
     str=""
@@ -24,19 +60,41 @@ Benvenuto sono BraccinoBot\
 
 @bot.message_handler(commands=['routine'])
 def nome(message):
-    bot.send_message(message.chat.id,"Routin", reply_markup=routine_markup())
+    bot.send_message(message.chat.id,"Routine", reply_markup=routinelist_markup())
+
+#Finito
+def routinelist_markup():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    r=requests.get('http://127.0.0.1:8000/routines').json()
+    routine_button=[]
+    for routine in r:
+        routine_button.append(InlineKeyboardButton(routine["name"], callback_data="R"+str(routine["id"])))
+
+    markup.add(*routine_button)
+    markup.add(InlineKeyboardButton(u'\U0000274c', callback_data="esci"))
+                               
+    return markup
+
 
 def routine_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
-    markup.add(InlineKeyboardButton('R1', callback_data="R1"),
-                               InlineKeyboardButton('R2', callback_data="R2"),
-                               InlineKeyboardButton(u'\U0000274c', callback_data="esci"))
+    markup.add(InlineKeyboardButton('Avvia', callback_data="avvia"),
+                               InlineKeyboardButton('Modifica', callback_data="modificaStep"),
+                               InlineKeyboardButton("<==", callback_data="backRoutinelist"))
     return markup
 
 def step_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
+
+    r_id=premutoR.replace('R','')
+    r=requests.get('http://127.0.0.1:8000/routines/'+r_id).json()
+    step_button=[]
+    for step in r["steps"]:
+        step_button.append(InlineKeyboardButton('S1', callback_data="S1"))
+        
     markup.add(InlineKeyboardButton('S1', callback_data="S1"),
                                InlineKeyboardButton('S2', callback_data="S2"),
                                InlineKeyboardButton("<==", callback_data="backRoutine"))
@@ -47,13 +105,12 @@ def m_markup():
     markup.row_width = 2
     markup.add(InlineKeyboardButton('M1', callback_data="M1"),
                                InlineKeyboardButton('M2', callback_data="M2"),
+                               InlineKeyboardButton('M3', callback_data="M3"),
+                               InlineKeyboardButton('M4', callback_data="M4"),
+                               InlineKeyboardButton('M5', callback_data="M5"),
+                               InlineKeyboardButton('M6', callback_data="M6"),
+                               InlineKeyboardButton('Conferma', callback_data="confermaModifica"),
                                InlineKeyboardButton("<==", callback_data="backStep"))
-    return markup
-
-def back_markup():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(InlineKeyboardButton("<==", callback_data="backM"))
     return markup
 
 def mod_markup():
@@ -64,52 +121,55 @@ def mod_markup():
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    global pos
+    global M,premutoM,premutoS,premutoR
 
     if call.data == "esci":
         bot.delete_message(call.message.chat.id,call.message.id)
 
+    #Torna alla lista delle routine finito
+    if call.data == "backRoutinelist":
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Routine",reply_markup=routinelist_markup(), message_id=call.message.id)
+
+    #Torna alla routine Finito
     if call.data == "backRoutine":
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Routine",reply_markup=routine_markup(), message_id=call.message.id)
+        r_id=premutoR.replace('R','')
+        r=requests.get('http://127.0.0.1:8000/routines/'+r_id).json()
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Routine "+ r["name"],reply_markup=routine_markup(), message_id=call.message.id)
+
 
     if call.data == "backStep":
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Steps Routine 1",reply_markup=step_markup(), message_id=call.message.id)
+        r_id=premutoR.replace('R','')
+        r=requests.get('http://127.0.0.1:8000/routines/'+r_id).json()
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Step Routine "+ r["name"],reply_markup=step_markup(), message_id=call.message.id)
 
     if call.data == "backM":
         bot.edit_message_text(chat_id=call.message.chat.id, text="Posizioni step 1",reply_markup=m_markup(), message_id=call.message.id)
     
-    if call.data == "R1":
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Steps Routine 1",reply_markup=step_markup(), message_id=call.message.id)
+    #Scelta routine finito
+    if call.data.startswith("R"):
+        premutoR=call.data
+        r_id=call.data.replace('R','')
+        r=requests.get('http://127.0.0.1:8000/routines/'+r_id).json()
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Routine "+ r["name"],reply_markup=routine_markup(), message_id=call.message.id)
 
-    if call.data == "S1":
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizioni step 1",reply_markup=m_markup(), message_id=call.message.id)
+    #Pulsante modifica finito
+    if call.data == "modificaStep":
+        r_id=premutoR.replace('R','')
+        r=requests.get('http://127.0.0.1:8000/routines/'+r_id).json()
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Step Routine "+ r["name"],reply_markup=step_markup(), message_id=call.message.id)
+
+    if call.data.startswith("S"):
+        premutoS=call.data
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizioni " + call.data,reply_markup=m_markup(), message_id=call.message.id)
     
-    if call.data =="M1":
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione M1: "+ str(pos),reply_markup=mod_markup(),message_id=call.message.id)
+    if call.data.startswith("M"):
+        premutoM=call.data
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione "+ call.data +": "+ str(routine[call.data]) ,reply_markup=mod_markup(),message_id=call.message.id)
         
-    if call.data=="-5":
-        pos-=5
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione M1: "+ str(pos),reply_markup=mod_markup(),message_id=call.message.id)
+    if call.data.startswith("+") or call.data.startswith("-") :
+        M[premutoM]+=int(call.data)
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione "+ premutoM +": "+ str(M[premutoM]),reply_markup=mod_markup(),message_id=call.message.id)
         
-    if call.data=="+5":
-        pos+=5
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione M1: "+ str(pos),reply_markup=mod_markup(),message_id=call.message.id)
-        
-    if call.data=="-10":
-        pos-=10
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione M1: "+ str(pos),reply_markup=mod_markup(),message_id=call.message.id)
-
-    if call.data=="+10":
-        pos+=10
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione M1: "+ str(pos),reply_markup=mod_markup(),message_id=call.message.id)
-
-    if call.data=="-30":
-        pos-=30
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione M1: "+ str(pos),reply_markup=mod_markup(),message_id=call.message.id)
-
-    if call.data=="+30":
-        pos+=30
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione M1: "+ str(pos),reply_markup=mod_markup(),message_id=call.message.id)
         
 
 bot.polling()
