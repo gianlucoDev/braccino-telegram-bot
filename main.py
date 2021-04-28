@@ -85,6 +85,7 @@ def routine_markup():
                                InlineKeyboardButton("<==", callback_data="backRoutinelist"))
     return markup
 
+#Lista step finito
 def step_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
@@ -92,23 +93,22 @@ def step_markup():
     r_id=premutoR.replace('R','')
     r=requests.get('http://127.0.0.1:8000/routines/'+r_id).json()
     step_button=[]
-    for step in r["steps"]:
-        step_button.append(InlineKeyboardButton('S1', callback_data="S1"))
-        
-    markup.add(InlineKeyboardButton('S1', callback_data="S1"),
-                               InlineKeyboardButton('S2', callback_data="S2"),
-                               InlineKeyboardButton("<==", callback_data="backRoutine"))
+    for i, step in enumerate(r["steps"]):
+        step_button.append(InlineKeyboardButton("S"+str(i+1), callback_data="S"+str(i+1)))
+
+    markup.add(*step_button)
+    markup.add(InlineKeyboardButton("<==", callback_data="backRoutine"))
     return markup
 
 def m_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
-    markup.add(InlineKeyboardButton('M1', callback_data="M1"),
-                               InlineKeyboardButton('M2', callback_data="M2"),
-                               InlineKeyboardButton('M3', callback_data="M3"),
-                               InlineKeyboardButton('M4', callback_data="M4"),
-                               InlineKeyboardButton('M5', callback_data="M5"),
-                               InlineKeyboardButton('M6', callback_data="M6"),
+    markup.add(InlineKeyboardButton('M1', callback_data="m1"),
+                               InlineKeyboardButton('M2', callback_data="m2"),
+                               InlineKeyboardButton('M3', callback_data="m3"),
+                               InlineKeyboardButton('M4', callback_data="m4"),
+                               InlineKeyboardButton('M5', callback_data="m5"),
+                               InlineKeyboardButton('M6', callback_data="m6"),
                                InlineKeyboardButton('Conferma', callback_data="confermaModifica"),
                                InlineKeyboardButton("<==", callback_data="backStep"))
     return markup
@@ -162,10 +162,20 @@ def callback_query(call):
         premutoS=call.data
         bot.edit_message_text(chat_id=call.message.chat.id, text="Posizioni " + call.data,reply_markup=m_markup(), message_id=call.message.id)
     
-    if call.data.startswith("M"):
+   
+   
+    if call.data.startswith("m"):
         premutoM=call.data
-        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione "+ call.data +": "+ str(routine[call.data]) ,reply_markup=mod_markup(),message_id=call.message.id)
+        s_pos=int(premutoS.replace('S',''))-1
+        r_id=premutoR.replace('R','')
+
+        s=requests.get('http://127.0.0.1:8000/routines/'+r_id).json()["steps"]
+        m_value=[m_pos[call.data]]
+        bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione "+ call.data +": "+ str(m_value) ,reply_markup=mod_markup(),message_id=call.message.id)
         
+
+
+
     if call.data.startswith("+") or call.data.startswith("-") :
         M[premutoM]+=int(call.data)
         bot.edit_message_text(chat_id=call.message.chat.id, text="Posizione "+ premutoM +": "+ str(M[premutoM]),reply_markup=mod_markup(),message_id=call.message.id)
