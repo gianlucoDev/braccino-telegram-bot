@@ -42,13 +42,6 @@ premutoR = ""
 premutoS = ""
 premutoM = ""
 
-
-def list_view(list):
-    str = ""
-    for x in list:
-        str += x+"\n"
-    return str
-
 # Handle '/start' and '/help'
 
 
@@ -77,7 +70,7 @@ def routinelist_markup():
             routine["name"], callback_data="R"+str(routine["id"])))
 
     markup.add(*routine_button)
-    markup.add(InlineKeyboardButton(u'\U0000274c', callback_data="esci"))
+    markup.add(InlineKeyboardButton("❌", callback_data="esci"))
 
     return markup
 
