@@ -111,6 +111,12 @@ def select_routine(call):
                           text=f"Routine: {routine['name']}", reply_markup=markup)
     bot.answer_callback_query(call.id)
 
+@bot.callback_query_handler(func=check_callback_action('routine_start'))
+def routine_start(call):
+    _, [routine_id] = get_cb_data(call)
+    braccio=requests.get(
+        f"http://127.0.0.1:8000/braccio").json()
+    requests.post(f'http://127.0.0.1:8000/')
 
 @bot.callback_query_handler(func=check_callback_action('routine_delete'))
 def routine_delete(call):
