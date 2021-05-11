@@ -3,6 +3,8 @@ import json
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+BASE_URL = 'http://127.0.0.1:8000'
+
 API_TOKEN = '1731109146:AAFYwi3RizyY1Fw_aaUa2Ta-2DDMTbpD6Zg'
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -34,7 +36,7 @@ def welcome_command(message):
 
 
 def main_menu_markup():
-    routines = requests.get('http://127.0.0.1:8000/routines').json()
+    routines = requests.get(f'{BASE_URL}/routines').json()
 
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
@@ -70,7 +72,7 @@ def routine_add(call):
     def echo_all(message):
         routine = {"name": message.text,
                    "steps": []}
-        requests.post("http://127.0.0.1:8000/routines/", json=routine)
+        requests.post(f"{BASE_URL}/routines/", json=routine)
 
         main_menu(call)
 
@@ -92,13 +94,13 @@ def delete_message(call):
 def select_routine(call):
     _, [routine_id] = get_cb_data(call)
     routine = requests.get(
-        f"http://127.0.0.1:8000/routines/{routine_id}").json()
+        f"{BASE_URL}/routines/{routine_id}").json()
 
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(
         InlineKeyboardButton('▶️ Avvia', callback_data=make_cb_data(
-            'routine_start', routine_id)),
+            'braccio_choose', routine_id)),
         InlineKeyboardButton('⚙️ Modifica', callback_data=make_cb_data(
             'routine_edit', routine_id)),
         InlineKeyboardButton("🗑️ Elimina",
@@ -111,17 +113,42 @@ def select_routine(call):
                           text=f"Routine: {routine['name']}", reply_markup=markup)
     bot.answer_callback_query(call.id)
 
+@bot.callback_query_handler(func=check_callback_action('braccio_choose'))
+def braccio_choose(call):
+    _, [routine_id] = get_cb_data(call)
+    bracci=requests.get(
+        f"{BASE_URL}/braccio/").json()
+    
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+
+    for braccio in bracci:
+        cb_data = make_cb_data('routine_start', routine_id, braccio['serial_number'])
+        bracci_button = InlineKeyboardButton(
+            braccio['name'], callback_data=cb_data)
+        markup.add(bracci_button)
+    markup.add(InlineKeyboardButton("⬅️ Indietro",
+                             callback_data=make_cb_data('routine_choose', routine_id)))
+
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.id,
+                          text=f"Scegli il braccio:", reply_markup=markup)
+    bot.answer_callback_query(call.id)
+    
+
 @bot.callback_query_handler(func=check_callback_action('routine_start'))
 def routine_start(call):
-    _, [routine_id] = get_cb_data(call)
-    braccio=requests.get(
-        f"http://127.0.0.1:8000/braccio").json()
-    requests.post(f'http://127.0.0.1:8000/')
+    _, [routine_id, braccio_serial_number] = get_cb_data(call)
+
+    requests.post(f'{BASE_URL}/braccio/{braccio_serial_number}/run/{routine_id}')
+
+    call_new = call
+    call_new.data = make_cb_data('routine_choose', routine_id)
+    select_routine(call_new)
 
 @bot.callback_query_handler(func=check_callback_action('routine_delete'))
 def routine_delete(call):
     _, [routine_id] = get_cb_data(call)
-    requests.delete(f"http://127.0.0.1:8000/routines/{routine_id}")
+    requests.delete(f"{BASE_URL}/routines/{routine_id}")
     main_menu(call)
 
 
@@ -129,7 +156,7 @@ def routine_delete(call):
 def routine_edit(call):
     _, [routine_id] = get_cb_data(call)
     routine = requests.get(
-        f"http://127.0.0.1:8000/routines/{routine_id}").json()
+        f"{BASE_URL}/routines/{routine_id}").json()
 
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
@@ -153,9 +180,9 @@ def routine_edit(call):
 def step_delete(call):
     _, [routine_id, i] = get_cb_data(call)
     routine = requests.get(
-        f"http://127.0.0.1:8000/routines/{routine_id}").json()
+        f"{BASE_URL}/routines/{routine_id}").json()
     routine['steps'].pop(i)
-    requests.put(f"http://127.0.0.1:8000/routines/{routine_id}/", json=routine)
+    requests.put(f"{BASE_URL}/routines/{routine_id}/", json=routine)
     call_new = call
     call_new.data = make_cb_data('routine_edit', routine_id)
     routine_edit(call_new)
@@ -165,7 +192,7 @@ def step_delete(call):
 def step_add(call):
     _, [routine_id] = get_cb_data(call)
     routine = requests.get(
-        f"http://127.0.0.1:8000/routines/{routine_id}").json()
+        f"{BASE_URL}/routines/{routine_id}").json()
     routine['steps'].append({
         "delay": 1000,
         "m1": 90,
@@ -175,7 +202,7 @@ def step_add(call):
         "m5": 90,
         "m6": 10,
     })
-    requests.put(f"http://127.0.0.1:8000/routines/{routine_id}/", json=routine)
+    requests.put(f"{BASE_URL}/routines/{routine_id}/", json=routine)
     routine_edit(call)
 
 
@@ -183,7 +210,7 @@ def step_add(call):
 def step_select(call):
     _, [routine_id, i] = get_cb_data(call)
     routine = requests.get(
-        f"http://127.0.0.1:8000/routines/{routine_id}").json()
+        f"{BASE_URL}/routines/{routine_id}").json()
 
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
@@ -221,7 +248,7 @@ def step_select_value(call):
 
 def edit_value_markup(call, routine_id, i, p):
     routine = requests.get(
-        f"http://127.0.0.1:8000/routines/{routine_id}").json()
+        f"{BASE_URL}/routines/{routine_id}").json()
     value = routine['steps'][i][p]
 
     markup = InlineKeyboardMarkup()
@@ -260,13 +287,13 @@ def step_edit_value(call):
         value = p_max
 
     routine = requests.get(
-        f"http://127.0.0.1:8000/routines/{routine_id}").json()
+        f"{BASE_URL}/routines/{routine_id}").json()
 
     if value != routine['steps'][i][p]:
 
         routine['steps'][i][p] = value
         requests.put(
-            f"http://127.0.0.1:8000/routines/{routine_id}/", json=routine)
+            f"{BASE_URL}/routines/{routine_id}/", json=routine)
 
         edit_value_markup(call, routine_id, i, p)
 
