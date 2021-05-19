@@ -8,8 +8,16 @@ BASE_URL = 'http://127.0.0.1:8000'
 API_TOKEN = '1731109146:AAFYwi3RizyY1Fw_aaUa2Ta-2DDMTbpD6Zg'
 bot = telebot.TeleBot(API_TOKEN)
 
-limiti = {'delay': {'min': 0, 'max': 100000000}, 'm1': {'min': 0, 'max': 180}, 'm2': {'min': 15, 'max': 165}, 'm3': {
-    'min': 0, 'max': 180}, 'm4': {'min': 0, 'max': 180}, 'm5': {'min': 0, 'max': 180}, 'm6': {'min': 10, 'max': 73}}
+limiti = {
+    'delay': {'min': 0, 'max': 100000000},
+    'speed': {'min': 10, 'max': 30},
+    'base': {'min': 0, 'max': 180},
+    'shoulder': {'min': 15, 'max': 165},
+    'elbow': {'min': 0, 'max': 180},
+    'wrist_ver': {'min': 0, 'max': 180},
+    'wrist_rot': {'min': 0, 'max': 180},
+    'gripper': {'min': 10, 'max': 73}
+}
 
 
 def make_cb_data(action, *args):
@@ -113,37 +121,41 @@ def select_routine(call):
                           text=f"Routine: {routine['name']}", reply_markup=markup)
     bot.answer_callback_query(call.id)
 
+
 @bot.callback_query_handler(func=check_callback_action('braccio_choose'))
 def braccio_choose(call):
     _, [routine_id] = get_cb_data(call)
-    bracci=requests.get(
+    bracci = requests.get(
         f"{BASE_URL}/braccio/").json()
-    
+
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
 
     for braccio in bracci:
-        cb_data = make_cb_data('routine_start', routine_id, braccio['serial_number'])
+        cb_data = make_cb_data(
+            'routine_start', routine_id, braccio['serial_number'])
         bracci_button = InlineKeyboardButton(
             braccio['name'], callback_data=cb_data)
         markup.add(bracci_button)
     markup.add(InlineKeyboardButton("⬅️ Indietro",
-                             callback_data=make_cb_data('routine_choose', routine_id)))
+                                    callback_data=make_cb_data('routine_choose', routine_id)))
 
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.id,
                           text=f"Scegli il braccio:", reply_markup=markup)
     bot.answer_callback_query(call.id)
-    
+
 
 @bot.callback_query_handler(func=check_callback_action('routine_start'))
 def routine_start(call):
     _, [routine_id, braccio_serial_number] = get_cb_data(call)
 
-    requests.post(f'{BASE_URL}/braccio/{braccio_serial_number}/run/{routine_id}')
+    requests.post(
+        f'{BASE_URL}/braccio/{braccio_serial_number}/run/{routine_id}')
 
     call_new = call
     call_new.data = make_cb_data('routine_choose', routine_id)
     select_routine(call_new)
+
 
 @bot.callback_query_handler(func=check_callback_action('routine_delete'))
 def routine_delete(call):
@@ -195,12 +207,13 @@ def step_add(call):
         f"{BASE_URL}/routines/{routine_id}").json()
     routine['steps'].append({
         "delay": 1000,
-        "m1": 90,
-        "m2": 45,
-        "m3": 180,
-        "m4": 180,
-        "m5": 90,
-        "m6": 10,
+        "speed": 30,
+        "base": 90,
+        "shoulder": 45,
+        "elbow": 180,
+        "wrist_ver": 180,
+        "wrist_rot": 90,
+        "gripper": 10
     })
     requests.put(f"{BASE_URL}/routines/{routine_id}/", json=routine)
     routine_edit(call)
@@ -218,17 +231,19 @@ def step_select(call):
     markup.add(InlineKeyboardButton(
         'Delay', callback_data=make_cb_data('step_select_value', routine_id, i, 'delay')))
     markup.add(InlineKeyboardButton(
-        'M1', callback_data=make_cb_data('step_select_value', routine_id, i, 'm1')))
+        'Speed', callback_data=make_cb_data('step_select_value', routine_id, i, 'speed')))
     markup.add(InlineKeyboardButton(
-        'M2', callback_data=make_cb_data('step_select_value', routine_id, i, 'm2')))
+        'Base', callback_data=make_cb_data('step_select_value', routine_id, i, 'base')))
     markup.add(InlineKeyboardButton(
-        'M3', callback_data=make_cb_data('step_select_value', routine_id, i, 'm3')))
+        'Shoulder', callback_data=make_cb_data('step_select_value', routine_id, i, 'shoulder')))
     markup.add(InlineKeyboardButton(
-        'M4', callback_data=make_cb_data('step_select_value', routine_id, i, 'm4')))
+        'Elbow', callback_data=make_cb_data('step_select_value', routine_id, i, 'elbow')))
     markup.add(InlineKeyboardButton(
-        'M5', callback_data=make_cb_data('step_select_value', routine_id, i, 'm5')))
+        'Wrist_ver', callback_data=make_cb_data('step_select_value', routine_id, i, 'wrist_ver')))
     markup.add(InlineKeyboardButton(
-        'M6', callback_data=make_cb_data('step_select_value', routine_id, i, 'm6')))
+        'Wrist_rot', callback_data=make_cb_data('step_select_value', routine_id, i, 'wrist_rot')))
+    markup.add(InlineKeyboardButton(
+        'Gripper', callback_data=make_cb_data('step_select_value', routine_id, i, 'gripper')))
     markup.add(InlineKeyboardButton(
         "🗑️ Elimina", callback_data=make_cb_data('step_delete', routine_id, i)),)
     markup.add(InlineKeyboardButton(
@@ -249,7 +264,11 @@ def step_select_value(call):
 def edit_value_markup(call, routine_id, i, p):
     routine = requests.get(
         f"{BASE_URL}/routines/{routine_id}").json()
-    value = routine['steps'][i][p]
+    
+    if p=="delay" or p=="speed":    
+        value = routine['steps'][i][p]
+    else:
+        value = routine['steps'][i]["position"][p]
 
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
@@ -289,18 +308,36 @@ def step_edit_value(call):
     routine = requests.get(
         f"{BASE_URL}/routines/{routine_id}").json()
 
-    if value != routine['steps'][i][p]:
+    if p=="delay" or p=="speed":    
+        if value != routine['steps'][i][p]:
 
-        routine['steps'][i][p] = value
-        requests.put(
+            routine['steps'][i][p] = value
+            requests.put(
             f"{BASE_URL}/routines/{routine_id}/", json=routine)
 
-        edit_value_markup(call, routine_id, i, p)
+            edit_value_markup(call, routine_id, i, p)
 
-    elif value == routine['steps'][i][p]:
-        bot.answer_callback_query(call.id, "Limite raggiunto")
+        elif value == routine['steps'][i][p]:
+            bot.answer_callback_query(call.id, "Limite raggiunto")
 
-    bot.answer_callback_query(call.id)
+        bot.answer_callback_query(call.id)
+
+
+    else:
+        if value != routine['steps'][i]["position"][p]:
+            
+            routine['steps'][i]["position"][p] = value
+            requests.put(
+            f"{BASE_URL}/routines/{routine_id}/", json=routine)
+
+            edit_value_markup(call, routine_id, i, p)
+
+        elif value == routine['steps'][i]["position"][p]:
+            bot.answer_callback_query(call.id, "Limite raggiunto")
+
+        bot.answer_callback_query(call.id)
+
+    
 
 
 bot.polling()
