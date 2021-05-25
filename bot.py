@@ -1,11 +1,15 @@
-import requests
+import os
 import json
+import requests
+from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+load_dotenv()  # take environment variables from .env
+
 BASE_URL = 'http://127.0.0.1:8000'
 
-API_TOKEN = '1731109146:AAFYwi3RizyY1Fw_aaUa2Ta-2DDMTbpD6Zg'
+API_TOKEN = os.getenv('TELEGRAM_TOKEN')
 bot = telebot.TeleBot(API_TOKEN)
 
 limiti = {
