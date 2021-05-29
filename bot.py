@@ -212,12 +212,14 @@ def step_add(call):
     routine['steps'].append({
         "delay": 1000,
         "speed": 30,
-        "base": 90,
-        "shoulder": 45,
-        "elbow": 180,
-        "wrist_ver": 180,
-        "wrist_rot": 90,
-        "gripper": 10
+        "position": {
+            "base": 90,
+            "shoulder": 45,
+            "elbow": 180,
+            "wrist_ver": 180,
+            "wrist_rot": 90,
+            "gripper": 10
+        }
     })
     requests.put(f"{BASE_URL}/routines/{routine_id}/", json=routine)
     routine_edit(call)
@@ -268,8 +270,8 @@ def step_select_value(call):
 def edit_value_markup(call, routine_id, i, p):
     routine = requests.get(
         f"{BASE_URL}/routines/{routine_id}").json()
-    
-    if p=="delay" or p=="speed":    
+
+    if p == "delay" or p == "speed":
         value = routine['steps'][i][p]
     else:
         value = routine['steps'][i]["position"][p]
@@ -312,12 +314,12 @@ def step_edit_value(call):
     routine = requests.get(
         f"{BASE_URL}/routines/{routine_id}").json()
 
-    if p=="delay" or p=="speed":    
+    if p == "delay" or p == "speed":
         if value != routine['steps'][i][p]:
 
             routine['steps'][i][p] = value
             requests.put(
-            f"{BASE_URL}/routines/{routine_id}/", json=routine)
+                f"{BASE_URL}/routines/{routine_id}/", json=routine)
 
             edit_value_markup(call, routine_id, i, p)
 
@@ -326,13 +328,12 @@ def step_edit_value(call):
 
         bot.answer_callback_query(call.id)
 
-
     else:
         if value != routine['steps'][i]["position"][p]:
-            
+
             routine['steps'][i]["position"][p] = value
             requests.put(
-            f"{BASE_URL}/routines/{routine_id}/", json=routine)
+                f"{BASE_URL}/routines/{routine_id}/", json=routine)
 
             edit_value_markup(call, routine_id, i, p)
 
@@ -340,8 +341,6 @@ def step_edit_value(call):
             bot.answer_callback_query(call.id, "Limite raggiunto")
 
         bot.answer_callback_query(call.id)
-
-    
 
 
 bot.polling()
